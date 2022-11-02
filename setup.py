@@ -1,12 +1,18 @@
 from setuptools import setup, find_packages
+from os import path
 
-with open('README.md') as readme_file:
-    README = readme_file.read()
+here = path.abspath(path.dirname(__file__))
+
+# Get the long description from the README file
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup_args = dict(
     name='ecglib',
-    version='1.0.0',
+    version='1.0.1',
     description='ECG library with pretrained models and tools for ECG analysis',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     license='Apache License 2.0',
     packages=find_packages(),
     include_package_data=True,
