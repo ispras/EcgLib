@@ -4,7 +4,7 @@ from .composition import *
 
 
 __all__ = [
-    'functional',
-    'preprocess',
-    'composition',
+    "functional",
+    "preprocess",
+    "composition",
 ]

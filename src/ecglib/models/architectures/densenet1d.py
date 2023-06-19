@@ -3,7 +3,8 @@ import torch.nn as nn
 
 
 class DenseLayer(nn.Module):
-    ''' Paper: https://arxiv.org/pdf/1608.06993v5.pdf '''
+    """Paper: https://arxiv.org/pdf/1608.06993v5.pdf"""
+
     def __init__(self, input_channels, growth_rate, bottleneck_size, kernel_size):
         super().__init__()
         self.use_bottleneck = bottleneck_size > 0
@@ -15,7 +16,8 @@ class DenseLayer(nn.Module):
                 input_channels,
                 self.num_bottleneck_output_filters,
                 kernel_size=1,
-                stride=1)
+                stride=1,
+            )
         self.bn1 = nn.BatchNorm1d(self.num_bottleneck_output_filters)
         self.act1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv1d(
@@ -24,7 +26,8 @@ class DenseLayer(nn.Module):
             kernel_size=kernel_size,
             stride=1,
             dilation=1,
-            padding=kernel_size // 2)
+            padding=kernel_size // 2,
+        )
 
     def forward(self, x):
         if self.use_bottleneck:
@@ -38,15 +41,21 @@ class DenseLayer(nn.Module):
 
 
 class DenseBlock(nn.ModuleDict):
-    def __init__(self, num_layers, input_channels, growth_rate, kernel_size, bottleneck_size):
+    def __init__(
+        self, num_layers, input_channels, growth_rate, kernel_size, bottleneck_size
+    ):
         super().__init__()
         self.num_layers = num_layers
         for i in range(self.num_layers):
-            self.add_module(f'denselayer{i}',
-                            DenseLayer(input_channels + i * growth_rate,
-                                       growth_rate,
-                                       bottleneck_size,
-                                       kernel_size))
+            self.add_module(
+                f"denselayer{i}",
+                DenseLayer(
+                    input_channels + i * growth_rate,
+                    growth_rate,
+                    bottleneck_size,
+                    kernel_size,
+                ),
+            )
 
     def forward(self, x):
         layer_outputs = [x]
@@ -62,7 +71,9 @@ class TransitionBlock(nn.Module):
         super().__init__()
         self.bn = nn.BatchNorm1d(input_channels)
         self.act = nn.ReLU(inplace=True)
-        self.conv = nn.Conv1d(input_channels, out_channels, kernel_size=1, stride=1, dilation=1)
+        self.conv = nn.Conv1d(
+            input_channels, out_channels, kernel_size=1, stride=1, dilation=1
+        )
         self.pool = nn.AvgPool1d(kernel_size=2, stride=2)
 
     def forward(self, x):
@@ -75,27 +86,38 @@ class TransitionBlock(nn.Module):
 
 class DenseNet1d(nn.Module):
     def __init__(
-            self,
-            growth_rate: int = 32,
-            block_config: tuple = (6, 12, 24, 16),
-            num_init_features: int = 64,
-            bottleneck_size: int = 4,
-            kernel_size: int = 3,
-            input_channels: int = 3,
-            num_classes: int = 1,
-            reinit: bool = True,
+        self,
+        growth_rate: int = 32,
+        block_config: tuple = (6, 12, 24, 16),
+        num_init_features: int = 64,
+        bottleneck_size: int = 4,
+        kernel_size: int = 3,
+        input_channels: int = 3,
+        num_classes: int = 1,
+        reinit: bool = True,
     ):
         super().__init__()
+        self.stem = None
+        self.backbone = None
+        self.head = None
 
-        self.features = nn.Sequential(
+        # make stem
+        self.stem = nn.Sequential(
             nn.Conv1d(
-                input_channels, num_init_features,
-                kernel_size=7, stride=2, padding=3, dilation=1),
+                input_channels,
+                num_init_features,
+                kernel_size=7,
+                stride=2,
+                padding=3,
+                dilation=1,
+            ),
             nn.BatchNorm1d(num_init_features),
             nn.ReLU(inplace=True),
             nn.MaxPool1d(kernel_size=3, stride=2, padding=1),
         )
 
+        # make backbone
+        self.backbone = nn.Sequential()
         num_features = num_init_features
         for i, num_layers in enumerate(block_config):
             block = DenseBlock(
@@ -105,15 +127,17 @@ class DenseNet1d(nn.Module):
                 kernel_size=kernel_size,
                 bottleneck_size=bottleneck_size,
             )
-            self.features.add_module(f'denseblock{i}', block)
+            self.backbone.add_module(f"denseblock{i}", block)
             num_features = num_features + num_layers * growth_rate
             if i != len(block_config) - 1:
                 trans = TransitionBlock(
-                    input_channels=num_features,
-                    out_channels=num_features // 2)
-                self.features.add_module(f'transition{i}', trans)
+                    input_channels=num_features, out_channels=num_features // 2
+                )
+                self.backbone.add_module(f"transition{i}", trans)
                 num_features = num_features // 2
+        self.backbone_out_features = num_features
 
+        # make head
         self.final_bn = nn.BatchNorm1d(num_features)
         self.final_act = nn.ReLU(inplace=True)
         self.final_pool = nn.AdaptiveAvgPool1d(1)
@@ -130,15 +154,15 @@ class DenseNet1d(nn.Module):
                 elif isinstance(m, nn.Linear):
                     nn.init.constant_(m.bias, 0)
 
-    def forward_features(self, x):
-        out = self.features(x)
-        out = self.final_bn(out)
-        out = self.final_act(out)
-        out = self.final_pool(out)
-        return out
-
     def forward(self, x):
-        features = self.forward_features(x)
+        # stem
+        features = self.stem(x)
+        # backbone
+        features = self.backbone(features)
+        # head
+        features = self.final_bn(features)
+        features = self.final_act(features)
+        features = self.final_pool(features)
         features = features.squeeze(-1)
         out = self.classifier(features)
         return out
@@ -148,6 +172,9 @@ class DenseNet1d(nn.Module):
 
     def get_classifier(self):
         return self.classifier
+
+    def get_cnn(self):
+        return (nn.Sequential(self.stem, self.backbone), self.backbone_out_features)
 
 
 def densenet121_1d(**kwargs):

@@ -31,8 +31,9 @@ class Compose:
             self.p = p
 
     def __call__(self, x):
-        
-        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(2, p=[self.p, 1.0-self.p])
+        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(
+            2, p=[self.p, 1.0 - self.p]
+        )
         if idx == 0:
             for t in self.transforms:
                 x = t(x)
@@ -59,7 +60,7 @@ class SomeOf:
         self.transforms = transforms
         self.n = n
         if transform_prob is None:
-            self.transform_prob = [1 / len(self.transforms)]*len(self.transforms)
+            self.transform_prob = [1 / len(self.transforms)] * len(self.transforms)
         else:
             if sum(transform_prob) > 1.0:
                 raise ValueError("Sum of probabilities should be equal to 1.0")
@@ -67,14 +68,15 @@ class SomeOf:
                 self.transform_prob = transform_prob
 
     def __call__(self, x):
-        
-        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(len(self.transforms), size=self.n, p=self.transform_prob, replace=False)
+        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(
+            len(self.transforms), size=self.n, p=self.transform_prob, replace=False
+        )
         for i in idx:
             t = self.transforms[i]
             data = t(x)
-            
+
         return data
-    
+
 
 class OneOf:
     """
@@ -84,7 +86,7 @@ class OneOf:
 
     :return: preprocessed data
     """
-    
+
     def __init__(
         self,
         transforms: list,
@@ -92,7 +94,7 @@ class OneOf:
     ):
         self.transforms = transforms
         if transform_prob is None:
-            self.transform_prob = [1 / len(self.transforms)]*len(self.transforms)
+            self.transform_prob = [1 / len(self.transforms)] * len(self.transforms)
         else:
             if sum(transform_prob) > 1.0:
                 raise ValueError("Sum of probabilities should be equal to 1.0")
@@ -100,9 +102,10 @@ class OneOf:
                 self.transform_prob = transform_prob
 
     def __call__(self, x):
-        
-        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(len(self.transforms), p=self.transform_prob)
+        idx = np.random.RandomState(random.randint(0, (1 << 32) - 1)).choice(
+            len(self.transforms), p=self.transform_prob
+        )
         t = self.transforms[idx]
         x = t(x)
-        
+
         return x

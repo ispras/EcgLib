@@ -1,0 +1,36 @@
+12_leads:
+    AFIB:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_AFIB.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_AFIB.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_AFIB.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_AFIB.pt"
+    1AVB:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_1AVB.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_1AVB.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_1AVB.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_1AVB.pt"
+    SBRAD:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_SBRAD.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_SBRAD.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_SBRAD.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_SBRAD.pt"
+    STACH:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_STACH.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_STACH.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_STACH.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_STACH.pt"
+    PVC:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_PVC.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_PVC.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_PVC.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_PVC.pt"
+    CRBBB:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_CRBBB.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_CRBBB.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_CRBBB.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_CRBBB.pt"
+    IRBBB:
+        densenet1d121: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_densenet1d121_IRBBB.pt"
+        resnet1d18: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d18_IRBBB.pt"
+        resnet1d50: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d50_IRBBB.pt"
+        resnet1d101: "https://github.com/ispras/EcgLib/releases/download/v1.1.0/12_leads_resnet1d101_IRBBB.pt"
