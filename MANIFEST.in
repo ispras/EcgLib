@@ -1,1 +1,1 @@
-include ecglib/models/weights/*.yaml
+include src/ecglib/models/weights/*.yaml
