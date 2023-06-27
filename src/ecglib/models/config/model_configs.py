@@ -1,7 +1,9 @@
+from ..architectures.resnet1d import BottleneckBlock1d
 from dataclasses import dataclass, field
 from typing import Optional, Union, Tuple, Dict, Any
 
 import torch
+import torch.nn as nn
 
 __all__ = [
     "BaseConfig",
@@ -49,22 +51,24 @@ class ResNetConfig(BaseConfig):
     Default parameters correspond Resnet1d50 model
     """
 
+    block_type: nn.Module = field(default_factory=lambda: BottleneckBlock1d)
     layers: list = field(default_factory=lambda: [3, 4, 6, 3])
-    kernel_size: int = 3
-    num_classes: int = 1
     input_channels: int = 12
-    inplanes: int = 64
-    fix_feature_dim: bool = False
+    base_filters: int = 64
+    kernel_size: int = 3
+    stride: int = 2
+    num_classes: int = 1
+    dropout_prob: float = 0.0
+    fix_feature_dim: bool = True
     kernel_size_stem: Optional[int] = None
     stride_stem: int = 2
     pooling_stem: bool = True
-    stride: int = 2
-    lin_ftrs_head: Optional[list] = None
-    ps_head: float = 0.5
-    bn_final_head: bool = False
-    bn_head: bool = True
-    act_head: str = "relu"
     concat_pooling: bool = True
+    hidden_layers_head: Optional[list] = None
+    dropout_prob_head: float = 0.5
+    act_head: str = "relu"
+    bn_head: bool = True
+    bn_final_head: bool = False
 
 
 @dataclass(repr=True, eq=True)

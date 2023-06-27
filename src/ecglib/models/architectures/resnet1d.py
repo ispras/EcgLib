@@ -1,252 +1,460 @@
+import torch
 import torch.nn as nn
-from fastai.layers import AdaptiveConcatPool1d, LinBnDrop
-from fastcore.basics import listify
+import torch.nn.functional as F
+
+from fastai.layers import LinBnDrop, AdaptiveConcatPool1d
+
+"Copyright [resnet1d] [hsd1503] Licensed under the Apache License, Version 2.0 (the «License»);"
 
 
-class ResidualBlock1d(nn.Module):
-    expansion = 4
+class MyConv1dPadSame(nn.Module):
+    """
+    extend nn.Conv1d to support SAME padding
 
-    def __init__(self, inplanes, out_ftrs, stride=1, kernel_size=3, downsample=None):
-        super().__init__()
+    :param in_channels: number of input channels
+    :param out_channels: number of hidden chanels
+    :param kernel_size: size of kernel filters
+    :param stride: filter stride
+    :param bias: flag to use bias in convolution layer
+    """
 
-        self.conv1 = nn.Conv1d(inplanes, out_ftrs, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm1d(out_ftrs)
-
-        self.conv2 = nn.Conv1d(
-            out_ftrs,
-            out_ftrs,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=(kernel_size - 1) // 2,
-            bias=False,
-        )
-        self.bn2 = nn.BatchNorm1d(out_ftrs)
-
-        self.conv3 = nn.Conv1d(out_ftrs, out_ftrs * 4, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm1d(out_ftrs * 4)
-
-        self.out_features = out_ftrs * 4
-
+    def __init__(self, in_channels, out_channels, kernel_size, stride, bias):
+        super(MyConv1dPadSame, self).__init__()
+        # print("In channels", in_channels)
+        # print("out_channels", out_channels)
+        # print("kernel_sie", kernel_size)
+        # print("stride", stride)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
         self.stride = stride
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
+        self.conv = torch.nn.Conv1d(
+            in_channels=self.in_channels,
+            out_channels=self.out_channels,
+            kernel_size=self.kernel_size,
+            stride=self.stride,
+            bias=bias,
+        )
 
     def forward(self, x):
-        residual = x
 
+        net = x
+
+        # compute pad shape
+        in_dim = net.shape[-1]
+        out_dim = torch.div(
+            in_dim + self.stride - 1, self.stride, rounding_mode="floor"
+        )
+        p = max(0, (out_dim - 1) * self.stride + self.kernel_size - in_dim)
+        pad_left = torch.div(p, 2, rounding_mode="floor")
+        pad_right = p - pad_left
+        net = F.pad(net, (pad_left, pad_right), "constant", 0)
+
+        net = self.conv(net)
+
+        return net
+
+
+class MyMaxPool1dPadSame(nn.Module):
+    """
+    extend nn.MaxPool1d to support SAME padding
+
+    :param kernel_size: size of pooler filters
+    :param stride: pooler stride
+    """
+
+    def __init__(self, kernel_size, stride=1):
+        super(MyMaxPool1dPadSame, self).__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.max_pool = torch.nn.MaxPool1d(
+            kernel_size=self.kernel_size, stride=self.stride
+        )
+
+    def forward(self, x):
+
+        net = x
+
+        # compute pad shape
+        in_dim = net.shape[-1]
+        out_dim = torch.div(
+            in_dim + self.stride - 1, self.stride, rounding_mode="floor"
+        )
+        p = max(0, (out_dim - 1) * self.stride + self.kernel_size - in_dim)
+        pad_left = torch.div(p, 2, rounding_mode="floor")
+        pad_right = p - pad_left
+        net = F.pad(net, (pad_left, pad_right), "constant", 0)
+
+        net = self.max_pool(net)
+
+        return net
+
+
+class BasicBlock1d(nn.Module):
+    """
+    ResNet1d Basic Block
+
+    :param in_channels: number of input channels
+    :param out_channels: number of chanels on output of the block
+    :param kernel_size: size of kernel filters
+    :param stride: filter stride for the first layer in block
+    :param drop_prob: probability in dropout layers
+    :param downsample: nn.Module layers to downsample the input if input_size != output_size
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride,
+        drop_prob=0.0,
+        downsample=None,
+    ):
+        super(BasicBlock1d, self).__init__()
+
+        self.downsample = downsample
+
+        # the first conv
+        self.conv1 = MyConv1dPadSame(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            bias=False,
+        )
+        self.bn1 = nn.BatchNorm1d(out_channels)
+        self.relu1 = nn.ReLU()
+        self.do1 = nn.Dropout(p=drop_prob)
+
+        # the second conv
+        self.conv2 = MyConv1dPadSame(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            bias=False,
+        )
+        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.relu2 = nn.ReLU()
+        self.do2 = nn.Dropout(p=drop_prob)
+
+    def forward(self, x):
+        identity = x
+
+        # the first conv
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        out = self.relu1(out)
+        out = self.do1(out)
 
+        # the second conv
         out = self.conv2(out)
         out = self.bn2(out)
-        out = self.relu(out)
+        out = self.relu2(out)
+        out = self.do2(out)
 
+        if self.downsample:
+            identity = self.downsample(identity)
+
+        # shortcut
+        out = out + identity
+
+        return out
+
+
+class BottleneckBlock1d(nn.Module):
+    """
+    ResNet1d Bottleneck Block
+
+    :param in_channels: number of input channels
+    :param out_channels: number of chanels on output of the block
+    :param kernel_size: size of kernel filters for the second layer in block
+    :param stride: filter stride for the second layer in block
+    :param drop_prob: probability in dropout layers
+    :param downsample: nn.Module layers to downsample the input if input_size != output_size
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        stride,
+        drop_prob=0.0,
+        downsample=None,
+    ):
+        super(BottleneckBlock1d, self).__init__()
+
+        self.downsample = downsample
+
+        # the first conv
+        self.conv1 = MyConv1dPadSame(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+        )
+        self.bn1 = nn.BatchNorm1d(out_channels)
+        self.relu1 = nn.ReLU()
+        self.do1 = nn.Dropout(p=drop_prob)
+
+        # the second conv
+        self.conv2 = MyConv1dPadSame(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            bias=False,
+        )
+        self.bn2 = nn.BatchNorm1d(out_channels)
+        self.relu2 = nn.ReLU()
+        self.do2 = nn.Dropout(p=drop_prob)
+
+        # the third conv
+        self.conv3 = MyConv1dPadSame(
+            in_channels=out_channels,
+            out_channels=out_channels * 4,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+        )
+        self.bn3 = nn.BatchNorm1d(out_channels * 4)
+        self.relu3 = nn.ReLU()
+        self.do3 = nn.Dropout(p=drop_prob)
+
+    def forward(self, x):
+        identity = x
+
+        # the first conv
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu1(out)
+        out = self.do1(out)
+
+        # the second conv
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu2(out)
+        out = self.do2(out)
+
+        # the third conv
         out = self.conv3(out)
         out = self.bn3(out)
+        out = self.relu3(out)
+        out = self.do3(out)
 
-        if self.downsample is not None:
-            residual = self.downsample(x)
+        if self.downsample:
+            identity = self.downsample(identity)
 
-        out += residual
-        out = self.relu(out)
+        # shortcut
+        out = out + identity
 
         return out
 
 
 class ResNet1d(nn.Module):
-    """Paper: https://arxiv.org/pdf/1512.03385.pdf"""
+    """
+    Residual Network for 1d data
+
+    :param block_type: type of block in backbone. must be one of: \"BasicBlock1d\", \"BottleneckBlock1d\"
+    :param layers: list of numbers of repeating blocks in backbone
+    :param input_channels: number of input channels
+    :param base_filters: output channels for the first block in backbone
+    :param kernel_size: size of kernel filters in backbone 
+    :param stride: stride in conv1d for the first block in each group of blocks in backbone
+    :param num_classes: number of prediction classes
+    :param drop_prob: probability in dropout layers in backbone
+    :param fix_feature_dim: flag to save `base_filters` value for groups of blocks. Otherwise base_filters * 2
+    :param kernel_size_stem: size of kernel filters in stem 
+    :param stride: stride in conv1d in stem
+    :param pooling_stem: flag to use MaxPool1d in stem
+    :param concat_pooling: flag to use AdaptiveConcatPool1d in head. Otherwise use AdaptiveMaxPool1d
+    :param hidden_layers_head: list of num of hidden neurons in each layer of head
+    :param dropout_prob_head: probability in dropout layers in head
+    :param act_head: type of activation layer in head. act_head must be one of: \"relu\", \"elu\". 
+    """
 
     def __init__(
         self,
-        block,
+        block_type,
         layers,
-        kernel_size=3,
-        num_classes=2,
-        input_channels=3,
-        inplanes=64,
-        fix_feature_dim=False,
-        kernel_size_stem=None,
-        stride_stem=2,
-        pooling_stem=True,
-        stride=2,
-        lin_ftrs_head=None,
-        ps_head=0.5,
-        bn_final_head=False,
-        bn_head=True,
-        act_head="relu",
-        concat_pooling=True,
+        input_channels,
+        base_filters,
+        kernel_size,
+        stride,
+        num_classes,
+        dropout_prob,
+        fix_feature_dim,
+        kernel_size_stem,
+        stride_stem,
+        pooling_stem,
+        concat_pooling,
+        hidden_layers_head,
+        dropout_prob_head,
+        act_head,
+        bn_head,
+        bn_final_head,
     ):
         super(ResNet1d, self).__init__()
 
         self.stem = None
         self.backbone = None
-        self.pooling_adapter = None
         self.head = None
-        self.inplanes = inplanes
+        self.base_filters = base_filters
+        self.in_channels = input_channels
 
-        self.kernel_size_stem = (
-            kernel_size if kernel_size_stem is None else kernel_size_stem
+        # block type correctness
+        if block_type.__name__ == BasicBlock1d.__name__:
+            self.block_str = block_type.__name__
+            self.block_expansion = 1
+        elif block_type.__name__ == BottleneckBlock1d.__name__:
+            self.block_str = block_type.__name__
+            self.block_expansion = 4
+        else:
+            raise ValueError(
+                'block type must be one of: "BasicBlock1d", "BottleneckBlock1d"'
+            )
+
+        # kernel size correctness
+        if isinstance(kernel_size, int):
+            kernel_size = [kernel_size for _ in range(len(layers))]
+        else:
+            assert isinstance(kernel_size, list)
+            assert len(kernel_size) == len(layers)
+
+        # kernel size stem correctness
+        kernel_size_stem = (
+            kernel_size[0] if kernel_size_stem is None else kernel_size_stem
         )
 
         # stem
-        self.stem = self._make_stem(
-            in_channels=input_channels,
-            inplanes=inplanes,
-            kernel_size=self.kernel_size_stem,
-            stride=stride_stem,
-            pooling=pooling_stem,
+        self.stem = nn.Sequential(
+            MyConv1dPadSame(
+                in_channels=self.in_channels,
+                out_channels=self.base_filters,
+                kernel_size=kernel_size_stem,
+                stride=stride_stem,
+                bias=False,
+            ),
+            nn.BatchNorm1d(self.base_filters),
+            nn.ReLU(),
+            MyMaxPool1dPadSame(kernel_size=3, stride=2) if pooling_stem else None,
         )
+
         # backbone
-        self.backbone = self._make_backbone(
-            inplanes=inplanes,
-            bb_layers=layers,
-            bb_block=block,
-            feature_dim=fix_feature_dim,
-            bb_kernel_size=kernel_size,
-            bb_stride=stride,
-        )
-        # head
-        head_ftrs = (
-            inplanes if fix_feature_dim else (2 ** len(layers) * inplanes)
-        ) * block.expansion
-        self.head = self._make_head(
-            n_features=head_ftrs,
-            n_classes=num_classes,
-            lin_ftrs=lin_ftrs_head,
-            ps=ps_head,
-            bn_final=bn_final_head,
-            bn=bn_head,
-            act=act_head,
-            concat_pooling=concat_pooling,
-        )
+        self.backbone = nn.Sequential()
 
-    def _make_stem(self, in_channels, inplanes, kernel_size, stride, pooling):
-        stem = nn.Sequential(
-            nn.Conv1d(
-                in_channels,
-                inplanes,
-                kernel_size=kernel_size,
-                stride=stride,
-                padding=(kernel_size - 1) // 2,
-                bias=False,
-            ),
-            nn.BatchNorm1d(inplanes),
-            nn.ReLU(inplace=True),
-            nn.MaxPool1d(kernel_size=3, stride=2, padding=1) if pooling else None,
-        )
-        return stem
+        for i, num_blocks in enumerate(layers):
 
-    def _make_backbone(
-        self, bb_layers, bb_block, inplanes, feature_dim, bb_kernel_size, bb_stride
-    ):
-        backbone = nn.Sequential()
-
-        for i, blocks in enumerate(bb_layers):
-            if not backbone:
-                out_ftrs = inplanes
+            if not self.backbone:
+                self.in_channels = self.base_filters
             else:
-                out_ftrs = inplanes if feature_dim else (2**i) * inplanes
+                self.in_channels = self.base_filters * self.block_expansion
+                self.base_filters = (
+                    self.base_filters if fix_feature_dim else 2 * self.base_filters
+                )
 
-            backbone.add_module(
-                "hidden_block{}".format(i),
-                self._make_block(
-                    bb_block=bb_block,
-                    out_ftrs=out_ftrs,
-                    blocks=bb_layers[i],
-                    stride=bb_stride,
-                    kernel_size=bb_kernel_size,
-                ),
-            )
-
-        return backbone
-
-    def _make_block(self, bb_block, out_ftrs, blocks, stride=1, kernel_size=3):
-        downsample = None
-        if stride != 1 or self.inplanes != out_ftrs * bb_block.expansion:
-            downsample = self._perform_downsample(bb_block, out_ftrs, stride)
-
-        block_layers = nn.Sequential()
-        block_layers.add_module(
-            f"{bb_block.__name__}_layer0",
-            bb_block(self.inplanes, out_ftrs, stride, kernel_size, downsample),
-        )
-
-        self.inplanes = out_ftrs * bb_block.expansion
-
-        for i in range(1, blocks):
-            block_layers.add_module(
-                f"{bb_block.__name__}_layer{i}", bb_block(self.inplanes, out_ftrs)
-            )
-
-        return block_layers
-
-    def _perform_downsample(self, block, out_ftrs, stride):
-        downsample = nn.Sequential()
-
-        downsample.add_module(
-            f"{block.__name__}_downsample",
-            nn.Conv1d(
-                self.inplanes,
-                out_ftrs * block.expansion,
-                kernel_size=1,
+            tmp_block = self.create_block(
+                block_type=block_type,
+                num_blocks=num_blocks,
                 stride=stride,
-                bias=False,
-            ),
-        )
-        downsample.add_module(
-            f"{block.__name__}_normalize",
-            nn.BatchNorm1d(out_ftrs * block.expansion),
-        )
-        return downsample
+                kernel_size=kernel_size[i],
+                dropout_prob=dropout_prob,
+            )
 
-    def _make_head(
-        self,
-        n_features,
-        n_classes,
-        lin_ftrs=None,
-        ps=0.5,
-        bn_final=False,
-        bn=True,
-        act="relu",
-        concat_pooling=True,
-    ):
-        lin_ftrs = (
-            [n_features if concat_pooling else n_features, n_classes]
-            if lin_ftrs is None
-            else [2 * n_features if concat_pooling else n_features]
-            + lin_ftrs
-            + [n_classes]
-        )
+            self.backbone.add_module(f"{self.block_str}_block{i}", tmp_block)
 
-        probs = listify(ps)
-        if len(probs) == 1:
-            probs = [probs[0] / 2] * (len(lin_ftrs) - 2) + probs
-
-        actns = [nn.ReLU(inplace=True) if act == "relu" else nn.ELU(inplace=True)] * (
-            len(lin_ftrs) - 2
-        ) + [None]
+        # head
+        self.head = nn.Sequential()
 
         pooling_adapter = nn.Sequential(
-            AdaptiveConcatPool1d() if concat_pooling else nn.MaxPool1d(2),
+            AdaptiveConcatPool1d(size=1) if concat_pooling else nn.AdaptiveMaxPool1d(1),
             nn.Flatten(),
         )
+        self.head.add_module("pooling_adapter_head", pooling_adapter)
+
+        input_shape_head = self.in_channels * 2 if concat_pooling else self.in_channels
+        if hidden_layers_head is None:
+            hidden_layers_head = []
+        if act_head == "relu":
+            act = nn.ReLU()
+        elif act_head == "elu":
+            act = nn.ELU()
+        else:
+            raise ValueError('act_head must be one of: "relu", "elu"')
+
+        for i, hidden_layer in enumerate(hidden_layers_head):
+            self.head.add_module(
+                f"lin_bn_drop_head_{i}",
+                LinBnDrop(
+                    input_shape_head,
+                    hidden_layer,
+                    bn=bn_head,
+                    p=dropout_prob_head,
+                    act=act,
+                ),
+            )
+            input_shape_head = hidden_layer
+
+        self.head.add_module(
+            f"lin_bn_drop_head_final",
+            LinBnDrop(input_shape_head, num_classes, bn=bn_final_head, p=dropout_prob_head),
+        )
+
+    def create_block(self, block_type, num_blocks, stride, kernel_size, dropout_prob):
+        downsample = None
+
+        # dotted skip connection conditions
+        if stride != 1:
+            downsample = nn.Sequential(
+                MyConv1dPadSame(
+                    self.in_channels,
+                    self.base_filters * self.block_expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
+                nn.BatchNorm1d(self.base_filters * self.block_expansion),
+            )
+
         layers = nn.Sequential()
-        layers.add_module("pooling_adapter", pooling_adapter)
-
-        for ni, no, p, actn in zip(lin_ftrs[:-1], lin_ftrs[1:], probs, actns):
-            layers.add_module("lin_bn_drop", LinBnDrop(ni, no, bn, p, actn))
-
-        if bn_final:
-            layers.add_module("bn_final", nn.BatchNorm1d(lin_ftrs[-1], momentum=0.01))
+        layers.add_module(
+            f"{self.block_str}_layer0",
+            block_type(
+                self.in_channels,
+                self.base_filters,
+                kernel_size,
+                stride,
+                dropout_prob,
+                downsample,
+            ),
+        )
+        self.in_channels = self.base_filters * self.block_expansion
+        for i in range(1, num_blocks):
+            layers.add_module(
+                f"{self.block_str}_layer{i}",
+                block_type(
+                    self.in_channels,
+                    self.base_filters,
+                    kernel_size=3,
+                    stride=1,
+                    drop_prob=dropout_prob,
+                ),
+            )
 
         return layers
 
     def get_cnn(self):
-        return (
-            nn.Sequential(self.stem, self.backbone),
-            self.backbone[-1][-1].out_features,
-        )
+        """
+        method for metadata adaptation
+
+        return: tuple of
+        nn.Seqiential of stem and backbone
+        number of hidden channels after backbone
+        """
+        return (nn.Sequential(self.stem, self.backbone), self.in_channels)
 
     def forward(self, x):
         y = self.stem(x)
@@ -256,18 +464,65 @@ class ResNet1d(nn.Module):
 
 
 def resnet1d18(**kwargs):
-    kwargs["block"] = ResidualBlock1d
-    kwargs["layers"] = [1, 2, 2, 1]
+    """Constructs a ResNet-18 model."""
+    kwargs["block_type"] = BasicBlock1d
+    kwargs["layers"] = [2, 2, 2, 2]
+    return ResNet1d(**kwargs)
+
+
+def resnet1d34(**kwargs):
+    """Constructs a ResNet-34 model."""
+    kwargs["block_type"] = BasicBlock1d
+    kwargs["layers"] = [3, 4, 6, 3]
     return ResNet1d(**kwargs)
 
 
 def resnet1d50(**kwargs):
-    kwargs["block"] = ResidualBlock1d
+    """Constructs a ResNet-50 model."""
+    kwargs["block_type"] = BottleneckBlock1d
     kwargs["layers"] = [3, 4, 6, 3]
     return ResNet1d(**kwargs)
 
 
 def resnet1d101(**kwargs):
-    kwargs["block"] = ResidualBlock1d
+    """Constructs a ResNet-101 model."""
+    kwargs["block_type"] = BottleneckBlock1d
     kwargs["layers"] = [3, 4, 23, 3]
     return ResNet1d(**kwargs)
+
+
+def resnet1d152(**kwargs):
+    """Constructs a ResNet-152 model."""
+    kwargs["block_type"] = BottleneckBlock1d
+    kwargs["layers"] = [3, 8, 36, 3]
+    return ResNet1d(**kwargs)
+
+
+if __name__ == "__main__":
+    input_channels = 12
+    num_classes = 8
+    inp = torch.randn(4, 12, 1000)
+    model = ResNet1d(
+        block_type=BottleneckBlock1d,
+        layers=[3, 4, 6, 3],
+        input_channels=input_channels,
+        base_filters=64,
+        kernel_size=3,
+        stride=2,
+        num_classes=num_classes,
+        dropout_prob=0.0,
+        fix_feature_dim=True,
+        kernel_size_stem=3,
+        stride_stem=2,
+        pooling_stem=True,
+        concat_pooling=False,
+        hidden_layers_head=[512],
+        dropout_prob_head=0.5,
+        act_head="relu",
+        bn_head=True,
+        bn_final_head=False
+    )
+    # print(model)
+    print(model(inp))
+    backbone, out_features = model.get_cnn()
+    print(out_features)
