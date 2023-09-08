@@ -16,6 +16,7 @@ from .config.registred_configs import (
 )
 from .config.model_configs import BaseConfig
 from .architectures.cnn_tabular import CnnTabular
+from .architectures.double_cnn import DoubleCNN
 from .weights.checkpoint import ModelChekpoint
 
 resource_package = __name__
@@ -34,6 +35,7 @@ __all__ = [
 class Combination(IntEnum):
     SINGLE = 1
     CNNTAB = 2
+    DOUBLECNN = 3
 
     @staticmethod
     def from_string(label: str) -> IntEnum:
@@ -42,6 +44,8 @@ class Combination(IntEnum):
             return Combination.SINGLE
         elif "cnntab" in label:
             return Combination.CNNTAB
+        elif "doublecnn" in label:
+            return Combination.DOUBLECNN
         else:
             raise ValueError(f"label for combination must be one of [\'single\', \'cnntab\']. Recieved {label}")
 
@@ -93,6 +97,7 @@ def create_model(
             configs = configs[0]
 
         return get_model(name=model_name[0], config=configs, weights=weights)
+
     elif combine is Combination.CNNTAB:
         assert (
             len(model_name) == 2
@@ -103,7 +108,7 @@ def create_model(
         ), f"Combination.CNNTAB suggest using a cnn-like architecture as a cnn_backbone part and using TabularNet class as tabular model. Recieved: {model_name[0]}; {model_name[1]}"
 
         cnn_conf, tab_conf = (
-            (None, None) if configs == None else (configs[0], configs[1])
+            (None, None) if configs is None else (configs[0], configs[1])
         )
 
         cnn, cnn_out = get_model(name=model_name[0], config=cnn_conf).get_cnn()
@@ -121,6 +126,27 @@ def create_model(
         )
 
         return model
+
+    elif combine is Combination.DOUBLECNN:
+        assert (
+                len(model_name) == 2
+        ), "For Combination.CONCAT case `model_name` must contain 2 model names (N models in future releases)"
+
+        cnn_conf, cnn2_conf = (
+            (None, None) if configs is None else (configs[0], configs[1])
+        )
+        cnn, cnn_out = get_model(name=model_name[0], config=cnn_conf).get_cnn()
+        cnn2 = get_model(name=model_name[1], config=cnn2_conf)
+        cnn2_out = cnn2.out_size
+        model = DoubleCNN(
+            cnn1_backbone=cnn,
+            cnn1_out_features=cnn_out,
+            cnn2_model=cnn2,
+            cnn2_out_features=cnn2_out,
+            classes=num_classes
+        )
+        return model
+
     else:
         raise ValueError
 

@@ -89,10 +89,10 @@ class EcgRecord:
                 ecg_metadata_tensor_values += [None]
         patient_tensor_values = np.array(patient_tensor_values, dtype=float)
         np.nan_to_num(patient_tensor_values, copy=False)
-        patient_tensor = torch.tensor(patient_tensor_values)
+        patient_tensor = torch.tensor(patient_tensor_values, dtype=torch.float)
         ecg_metadata_tensor_values = np.array(ecg_metadata_tensor_values, dtype=float)
         np.nan_to_num(ecg_metadata_tensor_values, copy=False)
-        ecg_metadata_tensor = torch.tensor(ecg_metadata_tensor_values)
+        ecg_metadata_tensor = torch.tensor(ecg_metadata_tensor_values, dtype=torch.float)
         return list([ecg_tensor, patient_tensor, ecg_metadata_tensor])
 
     def frequency_resample(self, requested_frequency=500):
