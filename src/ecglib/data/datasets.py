@@ -165,7 +165,7 @@ class EcgDataset(Dataset):
 
         # data preprocessing if specified (augmentation, filtering)
         if self.augmentation is not None:
-            ecg_record = self.augmentation(ecg_record)
+            full_ecg_record_info = self.augmentation(full_ecg_record_info)
 
         target = self.target[index]
 
