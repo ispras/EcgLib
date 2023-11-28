@@ -2,7 +2,7 @@ from typing import List, Optional, Callable
 
 from torch.nn import Module
 
-from .resnet1d import resnet1d18, resnet1d50, resnet1d101
+from .resnet1d import resnet1d18, resnet1d34, resnet1d50, resnet1d101
 from .densenet1d import densenet121_1d, densenet201_1d
 from .tabular import tabular
 from .cnn1d import cnn1d
@@ -15,6 +15,7 @@ BUILTIN_MODELS = {
     "densenet1d121": densenet121_1d,
     "densenet1d201": densenet201_1d,
     "resnet1d18": resnet1d18,
+    "resnet1d34": resnet1d34,
     "resnet1d50": resnet1d50,
     "resnet1d101": resnet1d101,
     "tabular": tabular,
