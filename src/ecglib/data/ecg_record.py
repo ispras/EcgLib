@@ -133,3 +133,6 @@ class EcgRecord:
         self.preprocessing_info.append(
             f"removed baseline wander with wavelet {wavelet}"
         )
+
+    def check_nans(self):
+        return np.any(np.isnan(self.signal))
