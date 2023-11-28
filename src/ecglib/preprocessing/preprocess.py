@@ -16,10 +16,11 @@ __all__ = [
     "EllipticFilter",
     "BaselineWanderRemoval",
     "WaveletTransform",
-    "LeadCrop",
-    "RandomLeadCrop",
+    "LeadNull",
+    "RandomLeadNull",
+    "TimeNull",
+    "RandomTimeNull",
     "TimeCrop",
-    "RandomTimeCrop",
     "SumAug",
     "RandomSumAug",
     "ConvexAug",
@@ -479,10 +480,10 @@ class WaveletTransform:
         return x
 
 
-class LeadCrop:
+class LeadNull:
     """
-    Apply lead crop augmentation
-    :param leads: leads to be cropped
+    Apply lead null augmentation
+    :param leads: leads to be nulled
 
     :return: preprocessed data
     """
@@ -492,30 +493,30 @@ class LeadCrop:
         leads: list = None,
     ):
         self.leads = leads
-        self.func = F.lead_crop
+        self.func = F.lead_null
 
-    def apply_lead_crop(self, x):
+    def apply_lead_null(self, x):
         if self.leads is None:
             self.leads = [0]
         return self.func(x, leads=self.leads)
 
     def __call__(self, x):
         if isinstance(x, ecglib.data.ecg_record.EcgRecord):
-            x.signal = self.apply_lead_crop(x.signal)
+            x.signal = self.apply_lead_null(x.signal)
             x.preprocessing_info.append(
-                f"applied LeadCrop filter on leads {self.leads}"
+                f"applied LeadNull filter on leads {self.leads}"
             )
         else:
-            x = self.apply_lead_crop(x)
+            x = self.apply_lead_null(x)
 
         return x
 
 
-class RandomLeadCrop(LeadCrop):
+class RandomLeadNull(LeadNull):
     """
-    Apply random lead crop augmentation
-    :param leads: leads to be potentially cropped
-    :param n: number of leads to be cropped (chosen randomly)
+    Apply random lead null augmentation
+    :param leads: leads to be potentially nulled
+    :param n: number of leads to be nulled (chosen randomly)
 
     :return: preprocessed data
     """
@@ -528,44 +529,44 @@ class RandomLeadCrop(LeadCrop):
         super().__init__(leads=leads)
         self.n = n
 
-    def apply_random_lead_crop(self, x):
+    def apply_random_lead_null(self, x):
         if isinstance(self.leads, list):
             if self.n is None:
                 self.n = 1
             if isinstance(self.n, int) and self.n > len(self.leads):
                 raise ValueError(f"n must be <= {len(self.leads)}")
-            leads_to_crop = list(
+            leads_to_null = list(
                 np.random.choice(self.leads, size=self.n, replace=False)
             )
-            self.leads = leads_to_crop
+            self.leads = leads_to_null
         else:
             self.leads = np.arange(x.shape[0])
             if self.n is None:
                 self.n = 1
-            leads_to_crop = list(
+            leads_to_null = list(
                 np.random.choice(self.leads, size=self.n, replace=False)
             )
-            self.leads = leads_to_crop
+            self.leads = leads_to_null
 
         return self.func(x, leads=self.leads)
 
     def __call__(self, x):
         if isinstance(x, ecglib.data.ecg_record.EcgRecord):
-            x.signal = self.apply_random_lead_crop(x.signal)
+            x.signal = self.apply_random_lead_null(x.signal)
             x.preprocessing_info.append(
-                f"applied RandomLeadCrop filter for {self.n} leads from the leads {self.leads}"
+                f"applied RandomLeadNull filter for {self.n} leads from the leads {self.leads}"
             )
         else:
-            x = self.apply_random_lead_crop(x)
+            x = self.apply_random_lead_null(x)
 
         return x
 
 
-class TimeCrop:
+class TimeNull:
     """
-    Apply time crop augmentation
-    :param time: length of time segment to be cropped (the same units as signal)
-    :param leads: leads to be cropped
+    Apply time null augmentation
+    :param time: length of time segment to be nulled (the same units as signal)
+    :param leads: leads to be nulled
 
     :return: preprocessed data
     """
@@ -577,31 +578,31 @@ class TimeCrop:
     ):
         self.time = time
         self.leads = leads
-        self.func = F.time_crop
+        self.func = F.time_null
 
-    def apply_time_crop(self, x):
+    def apply_time_null(self, x):
         if self.leads is None:
             self.leads = np.arange(x.shape[0])
         return self.func(x, time=self.time, leads=self.leads)
 
     def __call__(self, x):
         if isinstance(x, ecglib.data.ecg_record.EcgRecord):
-            x.signal = self.apply_time_crop(x.signal)
+            x.signal = self.apply_time_null(x.signal)
             x.preprocessing_info.append(
-                f"applied TimeCrop filter with a size of {self.time} from the leads {self.leads}"
+                f"applied TimeNull filter with a size of {self.time} from the leads {self.leads}"
             )
         else:
-            x = self.apply_time_crop(x)
+            x = self.apply_time_null(x)
 
         return x
 
 
-class RandomTimeCrop(TimeCrop):
+class RandomTimeNull(TimeNull):
     """
-    Apply random time crop augmentation
-    :param time: length of time segment to be cropped (the same units as signal)
-    :param leads: leads to be potentially cropped
-    :param n: number of leads to be cropped (chosen randomly)
+    Apply random time null augmentation
+    :param time: length of time segment to be nulled (the same units as signal)
+    :param leads: leads to be potentially nulled
+    :param n: number of leads to be nulled (chosen randomly)
 
     :return: preprocessed data
     """
@@ -615,37 +616,66 @@ class RandomTimeCrop(TimeCrop):
         super().__init__(time=time, leads=leads)
         self.n = n
 
-    def apply_random_time_crop(self, x):
+    def apply_random_time_null(self, x):
         if isinstance(self.leads, list):
             if self.n is None:
                 self.n = len(self.leads)
             if isinstance(self.n, int) and self.n > len(self.leads):
                 raise ValueError(f"n must be <= {len(self.leads)}")
-            leads_to_crop = list(
+            leads_to_null = list(
                 np.random.choice(self.leads, size=self.n, replace=False)
             )
-            self.leads = leads_to_crop
+            self.leads = leads_to_null
         else:
             self.leads = np.arange(x.shape[0])
             if self.n is None:
                 self.n = len(self.leads)
             else:
-                leads_to_crop = list(
+                leads_to_null = list(
                     np.random.choice(self.leads, size=self.n, replace=False)
                 )
-                self.leads = leads_to_crop
+                self.leads = leads_to_null
 
         return self.func(x, time=self.time, leads=self.leads)
 
     def __call__(self, x):
         if isinstance(x, ecglib.data.ecg_record.EcgRecord):
-            x.signal = self.apply_random_time_crop(x.signal)
+            x.signal = self.apply_random_time_null(x.signal)
             x.preprocessing_info.append(
-                f"applied RandomTimeCrop filter with a size of {self.time} to {self.n} leads "
+                f"applied RandomTimeNull filter with a size of {self.time} to {self.n} leads "
                 f"from the leads {self.leads}"
             )
         else:
-            x = self.apply_random_time_crop(x)
+            x = self.apply_random_time_null(x)
+
+        return x
+    
+
+class TimeCrop:
+    """
+    Apply time crop augmentation
+    :param time: length of time segment to be cropped (the same units as signal)
+
+    :return: preprocessed data
+    """
+    def __init__(
+        self,
+        time: int = 100,
+    ):
+        self.time = time
+        self.func = F.time_crop
+
+    def apply_time_crop(self, x):
+        return self.func(x, time=self.time)
+
+    def __call__(self, x):
+        if isinstance(x, ecglib.data.ecg_record.EcgRecord):
+            x.signal = self.apply_time_crop(x.signal)
+            x.preprocessing_info.append(
+                f"applied TimeCrop filter with a size of {self.time}"
+            )
+        else:
+            x = self.apply_time_crop(x)
 
         return x
 

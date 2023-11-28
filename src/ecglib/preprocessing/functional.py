@@ -17,7 +17,8 @@ __all__ = [
     "z_normalization",
     "DWT_filter",
     "SWT_filter",
-    "lead_crop",
+    "lead_null",
+    "time_null",
     "time_crop",
     "sum_augmentation",
     "convex_augmentation",
@@ -254,14 +255,14 @@ def SWT_filter(
     return pywt.iswt(coeffs, wavelet, norm=True)
 
 
-def lead_crop(
+def lead_null(
     record: np.ndarray,
     leads: list,
 ) -> np.ndarray:
     """
-    Lead crop augmentation
+    Lead nulling augmentation
     :param record: signal
-    :param leads: leads to be cropped
+    :param leads: leads to be nulled
 
     :return: preprocessed data
     """
@@ -270,16 +271,16 @@ def lead_crop(
     return record
 
 
-def time_crop(
+def time_null(
     record: np.ndarray,
     time: int,
     leads: list,
 ) -> np.ndarray:
     """
-    Time crop augmentation
+    Time nulling augmentation
     :param record: signal
-    :param time: length of time segment to be cropped (the same units as signal)
-    :param leads: leads to be cropped
+    :param time: length of time segment to be nulled (the same units as signal)
+    :param leads: leads to be nulled
 
     :return: preprocessed data
     """
@@ -290,6 +291,24 @@ def time_crop(
         start = np.random.choice(ls)
         record[lead, start : start + time] = 0
     return record
+
+
+def time_crop(
+    record: np.ndarray,
+    time: int,
+) -> np.ndarray:
+    """
+    Time crop augmentation
+    :param record: signal
+    :param time: length of time segment to be cropped (the same units as signal)
+    :param leads: leads to be cropped
+
+    :return: preprocessed data
+    """
+    assert time <= record.shape[1]
+    ls = np.arange(0, len(record[0]) - time, dtype="int")
+    start = np.random.choice(ls)
+    return record[:, start:start+time]
 
 
 def sum_augmentation(

@@ -97,9 +97,17 @@ class EcgDataset(Dataset):
                 'data_type can have only values from the list ["npz", "wfdb"]'
             )
         return ecg_record
+    
+    def take_metadata(self, index: int):
+        """
+        Take metadata and convert them into dictionary
 
-    def __getitem__(self, index):
-        ecg_frequency = float(self.ecg_data.iloc[index]["frequency"])
+        Args:
+            index (int): index of a row in self.ecg_data
+
+        Returns:
+            Tuple: (patient_meta, ecg_record_meta) -- tuple with metadata
+        """
         patient_meta = (
             self.ecg_data.iloc[index]["patient_metadata"]
             if "patient_metadata" in self.ecg_data.iloc[index]
@@ -110,33 +118,6 @@ class EcgDataset(Dataset):
             if "ecg_metadata" in self.ecg_data.iloc[index]
             else dict()
         )
-        file_path = self.ecg_data.iloc[index]["fpath"]
-
-        # data standartization (scaling, resampling, cuts off, normalization and padding/truncation)
-        ecg_record = self.read_ecg_record(file_path, self.data_type, self.leads)
-        ecg_record = P.Compose(
-            transforms=[
-                P.FrequencyResample(
-                    ecg_frequency=ecg_frequency, requested_frequency=self.frequency
-                ),
-                P.EdgeCut(cut_range=self.cut_range, frequency=self.frequency),
-                P.Normalization(norm_type=self.norm_type),
-                P.Padding(
-                    observed_ecg_length=self.ecg_length, frequency=self.frequency
-                ),
-            ],
-            p=1.0,
-        )(ecg_record)
-        assert not np.any(
-            np.isnan(ecg_record)
-        ), f"ecg_record = {ecg_record}, index = {index}"
-
-        # data preprocessing if specified (augmentation, filtering)
-        if self.augmentation is not None:
-            ecg_record = self.augmentation(ecg_record)
-
-        target = self.target[index]
-
         patient_meta = {
             key: patient_meta[key]
             if isinstance(patient_meta[key], list)
@@ -151,6 +132,15 @@ class EcgDataset(Dataset):
             for key in ecg_record_meta
         }
 
+        return (patient_meta, ecg_record_meta)
+
+    def __getitem__(self, index):
+        ecg_frequency = float(self.ecg_data.iloc[index]["frequency"])
+        patient_meta, ecg_record_meta = self.take_metadata(index)
+        file_path = self.ecg_data.iloc[index]["fpath"]
+
+        # data standartization (scaling, resampling, cuts off, normalization and padding/truncation)
+        ecg_record = self.read_ecg_record(file_path, self.data_type, self.leads)
         full_ecg_record_info = EcgRecord(
             signal=ecg_record[self.leads, :],
             frequency=ecg_frequency,
@@ -159,6 +149,25 @@ class EcgDataset(Dataset):
             ecg_metadata=ecg_record_meta,
             patient_metadata=patient_meta,
         )
+
+        # data standartization:
+        # resampling
+        full_ecg_record_info.frequency_resample(requested_frequency=self.frequency)
+        # cuts off
+        full_ecg_record_info.cut_ecg(self.cut_range)
+        # normalization
+        full_ecg_record_info.normalize(self.norm_type)
+        if self.ecg_length:
+            # padding/truncation
+            full_ecg_record_info.get_fixed_length(self.ecg_length)
+
+        assert not full_ecg_record_info.check_nans(), f"ecg_record = {full_ecg_record_info.signal}, index = {index}"
+
+        # data preprocessing if specified (augmentation, filtering)
+        if self.augmentation is not None:
+            full_ecg_record_info = self.augmentation(full_ecg_record_info)
+
+        target = self.target[index]
 
         result = [
             full_ecg_record_info.to_tensor(),
