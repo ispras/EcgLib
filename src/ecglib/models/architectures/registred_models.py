@@ -6,6 +6,7 @@ from .resnet1d import resnet1d18, resnet1d34, resnet1d50, resnet1d101
 from .densenet1d import densenet121_1d, densenet201_1d
 from .tabular import tabular
 from .cnn1d import cnn1d
+from .sssd.sssd_ecg_nle import sssd_ecg
 
 __all__ = ["register_model", "registred_models", "get_builder", "is_model_registred"]
 
@@ -19,7 +20,8 @@ BUILTIN_MODELS = {
     "resnet1d50": resnet1d50,
     "resnet1d101": resnet1d101,
     "tabular": tabular,
-    "cnn1d": cnn1d
+    "cnn1d": cnn1d,
+    "sssd_ecg": sssd_ecg,
 }
 
 
