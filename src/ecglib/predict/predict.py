@@ -32,8 +32,9 @@ def tabular_metadata_handler(
 
 
 def get_full_record(
-    frequency: int,
-    record: str,
+    ecg_frequency: int,
+    model_frequency: int,
+    record: Union[np.ndarray, torch.Tensor],
     patient_meta: dict,
     ecg_meta: dict,
     normalization: str = "z_norm",
@@ -43,8 +44,9 @@ def get_full_record(
     """
     Returns a full record from raw record, patient metadata, ECG metadata, and configuration.
 
-    :param frequency: int, frequency of the ECG record
-    :param record: str, path to ECG record
+    :param ecg_frequency: int, frequency of the ECG record
+    :param model_frequency: int, frequency of the trained model
+    :param record: Union[np.ndarray, torch.Tensor], ECG record
     :param patient_meta: dict, patient metadata
     :param ecg_meta: dict, ECG metadata
     :param normalization: str, normalization type
@@ -55,16 +57,15 @@ def get_full_record(
     """
 
     record = record[:,]
-    frequency = int(frequency)
     patient_meta = patient_meta
-    trained_freq = frequency
     if preprocess:
         record_processed = P.Compose(transforms=preprocess, p=1.0)(record)
     else:
         record_processed = P.Compose(
             transforms=[
                 P.FrequencyResample(
-                    ecg_frequency=frequency, requested_frequency=trained_freq
+                    ecg_frequency=int(ecg_frequency),
+                    requested_frequency=int(model_frequency),
                 ),
                 P.Normalization(norm_type=normalization),
             ],
@@ -89,7 +90,7 @@ class Predict:
         weights_path: str,
         model_name: str,
         pathologies: list,
-        frequency: int,
+        model_frequency: int,
         device: str,
         threshold: float,
         leads: list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -106,7 +107,7 @@ class Predict:
         :param weights_path: str, path to the model weights
         :param model_name: str, name of the model
         :param pathologies: list, list of pathologies
-        :param frequency: int, frequency of the ECG record
+        :param model_frequency: int, frequency of the trained model
         :param device: str, device to be used for computations
         :param threshold: float, threshold for the model
         :param leads: list, list of leads
@@ -124,7 +125,7 @@ class Predict:
         self.leads_num = len(leads)
         self.leads = leads
         self.device = device
-        self.frequency = frequency
+        self.model_frequency = model_frequency
         self.use_sigmoid = use_sigmoid
 
         if model is None:
@@ -154,15 +155,17 @@ class Predict:
 
     def predict(
         self,
-        record,
-        ecg_meta=None,
-        patient_meta=None,
-        channels_first=True,
+        record: Union[np.ndarray, torch.Tensor],
+        ecg_frequency: int,
+        ecg_meta: dict = None,
+        patient_meta: dict = None,
+        channels_first: bool = True,
     ):
         """
         Function that evaluates the model on a single ECG record.
 
         :param record: np.array or torch.tensor, ECG record
+        :param ecg_frequency: int, frequency of the ECG record
         :param ecg_meta: dict, ECG metadata (default is None)
         :param patient_meta: dict, patient metadata (default is None)
         :param channels_first: bool, whether the channels are the first dimension in the input data (default is False)
@@ -190,7 +193,8 @@ class Predict:
                 )
 
         input_ = get_full_record(
-            self.frequency,
+            ecg_frequency,
+            self.model_frequency,
             self.record,
             self.patient_meta,
             self.ecg_meta,
@@ -225,11 +229,12 @@ class Predict:
 
     def predict_directory(
         self,
-        directory,
-        file_type,
-        write_to_file=None,
-        ecg_meta=None,
-        patient_meta=None,
+        directory:str,
+        file_type:str,
+        ecg_frequency:Union[dict, int, None]=None,
+        write_to_file:str=None,
+        ecg_meta:List[dict]=None,
+        patient_meta:List[dict]=None,
     ):
         """
         Evaluates the model on all ECG records in a directory.
@@ -239,9 +244,11 @@ class Predict:
         :param write_to_file: str, path to the file where the predictions will be written (default is None), or None if the predictions should not be written to a file
         :param ecg_meta: list of dicts, each dict contains "filename" and "data" keys. ECG metadata (default is None)
         :param patient_meta: list of dicts, each dict contains "filename" and "data" keys. Patient metadata (default is None)
+        :param ecg_frequency: the frequency of the ECG records
 
         :return: pd.DataFrame, dataframe with the predictions
         """
+
         if ecg_meta:
             ecg_meta = sorted(ecg_meta, key=lambda k: k["filename"])
         if patient_meta:
@@ -255,6 +262,14 @@ class Predict:
         else:
             record_files = [file for file in all_files if file.endswith(file_type)]
         record_files = sorted(record_files)
+
+        if ecg_frequency is None:
+            ecg_frequencies = {}
+        elif isinstance(ecg_frequency, int):
+            ecg_frequencies = {record_file: ecg_frequency for record_file in record_files}
+        elif isinstance(ecg_frequency, dict):
+            assert all(isinstance(value, int) for value in ecg_frequencies.values()), "All values in ecg_frequency should be integers."
+            ecg_frequencies = ecg_frequency
 
         answer_df = pd.DataFrame(
             columns=["filename", "raw_out", "prob_out", "label_out"]
@@ -276,10 +291,14 @@ class Predict:
                     patient_meta_counter += 1
                     patient_meta_ = patient_meta[patient_meta_counter]["data"]
 
-            record_ = EcgDataset.read_ecg_record(
+            record_, record_frequency = EcgDataset.read_ecg_record(
                 None, os.path.join(directory, record), file_type
             )
-            record_answer = self.predict(record_, ecg_meta_, patient_meta_)
+            
+            ecg_frequency = record_frequency if record_frequency is not None else ecg_frequencies.get(record)
+            assert ecg_frequency is not None, "The file should contain the record frequency or the ecg_frequency should be defined."
+
+            record_answer = self.predict(record_, ecg_frequency, ecg_meta_, patient_meta_)
 
             answer_df_current = pd.DataFrame(
                 {
