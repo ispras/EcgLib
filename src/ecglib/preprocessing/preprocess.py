@@ -155,7 +155,7 @@ class EdgeCut:
 class Normalization:
     """
     Apply normalization
-    :param norm_type: type of normalization ('z_norm', 'z_norm_constant_handle', and 'min_max')
+    :param norm_type: type of normalization ('z_norm', 'z_norm_constant_handle', 'min_max' and 'identical')
 
     :return: preprocessed data
     """
@@ -169,9 +169,11 @@ class Normalization:
             self.func = F.minmax_normalization
         elif norm_type == "z_norm" or norm_type == "z_norm_constant_handle":
             self.func = F.z_normalization
+        elif norm_type == "identical":
+            self.func = F.identical_nomralization
         else:
             raise ValueError(
-                "norm_type must be one of [min_max, z_norm, z_norm_constant_handle]"
+                "norm_type must be one of [min_max, z_norm, z_norm_constant_handle, identical]"
             )
 
     def apply_normalization(self, x):

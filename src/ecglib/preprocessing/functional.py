@@ -191,6 +191,19 @@ def z_normalization(
         s_norm[same_values] = 0
     return s_norm
 
+def identical_nomralization(
+    s: np.ndarray, 
+) -> np.ndarray:
+    """function to identical normalization
+
+    Args:
+        s (np.ndarray): signal
+
+    Returns:
+        np.ndarray: preprocessed (identical) signal
+    """
+    return s
+
 
 def DWT_filter(
     s: np.ndarray,
