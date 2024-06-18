@@ -9,6 +9,7 @@
 - [Models](#models)
 - [Preprocessing](#preprocessing)
 - [Predict](#predict)
+- [Generation](#generation)
 
 ### Introduction
 
@@ -69,7 +70,7 @@ Via `datasets.py` one can create class *EcgDataset* to store ECG datasets. It st
 
 from ecglib.data import EcgDataset 
 
-targets = [[0.0] if 'AFIB' in eval(ptb_xl_info.iloc[i]['scp_codes']).keys() else [1.0] 
+targets = [[1.0] if 'AFIB' in eval(ptb_xl_info.iloc[i]['scp_codes']).keys() else [0.0] 
            for i in range(ptb_xl_info.shape[0])]
 ecg_data = EcgDataset(ecg_data=ptb_xl_info, target=targets)
 ```
@@ -158,3 +159,6 @@ result_df = predict.predict_directory(directory="path/to/data_to_predict",
                                       file_type="wfdb")
 print(predict.predict(ecg_signal, channels_first=False))
 ```
+
+### Generation
+`ecglib` contains the architecture of the diffusion model `SSSD_ECG_nle`, with which you can obtain synthetic signals. The training and generation pipeline is presented in `notebooks/sssd_ecg_nle.ipynb`. 

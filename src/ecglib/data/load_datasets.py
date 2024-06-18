@@ -18,6 +18,7 @@ def load_ptb_xl(
     path_to_zip: str = "./",
     path_to_unzip: str = "./",
     delete_zip: bool = True,
+    frequency: int = 500,
 ) -> pd.DataFrame:
     """
     Load PTB-XL dataset
@@ -25,12 +26,13 @@ def load_ptb_xl(
     :param path_to_zip: path where to store PTB-XL .zip file
     :param path_to_unzip: path where to unarchive PTB-XL .zip file
     :param delete_zip: whether to delete PTB-XL .zip file after unarchiving
+    :param frequency: sampling frequency of signals along the `fpath` column
 
     :return: dataframe with PTB-XL dataset info
     """
 
     if download:
-        url = "https://physionet.org/static/published-projects/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.2.zip"
+        url = "https://physionet.org/static/published-projects/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3.zip"
         ptb_xl_zip = os.path.join(path_to_zip, "ptb_xl.zip")
         response = requests.get(url, stream=True)
         total_size_in_bytes = int(response.headers.get("content-length", 0))
@@ -59,20 +61,26 @@ def load_ptb_xl(
             os.remove(ptb_xl_zip)
             print("Deleting completed!")
 
+    if frequency == 500:
+        suffix = 'hr' # high rate
+    else:
+        assert frequency == 100, f"PTB-XL signals are only supported with 100 or 500 sample frequency, recieved: {frequency}"
+        suffix = 'lr' # low rate
+
     ptb_xl_info = pd.read_csv(
         os.path.join(
             path_to_unzip,
-            "ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.2",
+            "ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3",
             "ptbxl_database.csv",
         )
     )
     ptb_xl_info["fpath"] = [
         os.path.join(
             path_to_unzip,
-            "ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.2",
-            ptb_xl_info.iloc[i]["filename_hr"],
+            "ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.3",
+            ptb_xl_info.iloc[i][f"filename_{suffix}"],
         )
-        for i in range(len(ptb_xl_info["filename_hr"]))
+        for i in range(len(ptb_xl_info[f"filename_{suffix}"]))
     ]
 
     return ptb_xl_info

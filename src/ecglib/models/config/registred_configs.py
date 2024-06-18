@@ -3,6 +3,7 @@ from .model_configs import (
     ResNetConfig,
     DenseNetConfig,
     TabularNetConfig,
+    SSSDConfig,
 )
 
 from ..architectures.model_types import MType
@@ -16,6 +17,7 @@ BUILTIN_CONFIGS = {
     MType.RESNET: ResNetConfig,
     MType.DENSENET: DenseNetConfig,
     MType.TABULAR: TabularNetConfig,
+    MType.SSSD: SSSDConfig
 }
 
 
