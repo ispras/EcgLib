@@ -88,15 +88,17 @@ class EcgDataset(Dataset):
         ):
         if data_type == "npz":
             ecg_record = np.load(file_path)["arr_0"].astype("float64")
+            frequency = None
         elif data_type == "wfdb":
-            ecg_record, _ = wfdb.rdsamp(file_path)
+            ecg_record, ann = wfdb.rdsamp(file_path)
             ecg_record = ecg_record.T
             ecg_record = ecg_record.astype("float64")
+            frequency = ann['fs']
         else:
             raise ValueError(
                 'data_type can have only values from the list ["npz", "wfdb"]'
             )
-        return ecg_record
+        return ecg_record, frequency
     
     def take_metadata(self, index: int):
         """
@@ -140,7 +142,7 @@ class EcgDataset(Dataset):
         file_path = self.ecg_data.iloc[index]["fpath"]
 
         # data standartization (scaling, resampling, cuts off, normalization and padding/truncation)
-        ecg_record = self.read_ecg_record(file_path, self.data_type)
+        ecg_record, _ = self.read_ecg_record(file_path, self.data_type)
         full_ecg_record_info = EcgRecord(
             signal=ecg_record[self.leads, :],
             frequency=ecg_frequency,

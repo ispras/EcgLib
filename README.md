@@ -138,26 +138,32 @@ augmented_record = Compose(transforms=[
 ```
 
 ### Predict
-This module allows users to test trained model with the architecture from `ecglib`. You can get the prediction for the specific ECG record or the prediction for all the records in the directory.
+This module allows users to test trained model with the architecture from `ecglib`. You can get the prediction for the specific ECG record or the prediction for all the records in the directory. For NPZ-typed records, the `ecg_frequency` parameter should be specified either as an integer for all records in the directory or as a dictionary with record names and their corresponding frequency.
 
 ```python
 # Predict example
 from ecglib.predict import Predict
 
-ecg_signal = wfdb.rdsamp("wfdb_file")[0] # for example 00001_hr from PTB-XL dataset
+ecg_signal, ann = wfdb.rdsamp("wfdb_file") # for example 00001_hr from PTB-XL dataset
+ecg_frequency = ann["fs"]
 
 predict = Predict(
     weights_path="/path/to/model_weights",
     model_name="densenet1d121",
     pathologies=["AFIB"],
-    frequency=500,
+    model_frequency=500,
     device="cuda:0",
     threshold=0.5
 )
 
-result_df = predict.predict_directory(directory="path/to/data_to_predict",
-                                      file_type="wfdb")
-print(predict.predict(ecg_signal, channels_first=False))
+ecg_prediction = predict.predict(ecg_signal, ecg_frequency, channels_first=False)
+
+result_df_wfdb = predict.predict_directory(directory="path/to/data_to_predict",
+                                           file_type="wfdb")
+
+result_df_npz = predict.predict_directory(directory="path/to/data_to_predict",
+                                          file_type="npz",
+                                          ecg_frequency=1000)
 ```
 
 ### Generation
