@@ -10,7 +10,8 @@ __all__ = [
     "ResNetConfig",
     "TabularNetConfig",
     "DenseNetConfig",
-    "CNN1dConfig"
+    "CNN1dConfig",
+    "SSSDConfig"
 ]
 
 
@@ -110,3 +111,28 @@ class CNN1dConfig(BaseConfig):
     inp_channels: int = 12
     inp_features: int = 1
     cnn_ftrs: list = field(default_factory=lambda: [64, 32, 16])
+
+
+@dataclass(repr=True, eq=True)
+class SSSDConfig(BaseConfig):
+    """
+    Default parameters correspond SSSD_ECG model
+    """
+    in_channels: int = 8
+    res_channels: int = 256
+    skip_channels: int = 256
+    out_channels: int = 8
+    num_res_layers: int = 36
+    diffusion_step_embed_dim_in: int = 128
+    diffusion_step_embed_dim_mid: int = 512
+    diffusion_step_embed_dim_out: int = 512
+    s4_lmax: int = 1000
+    s4_d_state: int = 64
+    s4_dropout: float = 0.0
+    s4_bidirectional: bool = True
+    s4_layernorm: bool = True
+    label_embed_dim: int = 128
+    label_embed_classes: int = 40
+    gender_embed_classes: int = 0
+    gender_embed_dim: int = 128
+    new_label_embed: bool = True
