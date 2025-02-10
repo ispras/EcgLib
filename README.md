@@ -28,6 +28,17 @@ If you find this tool useful in your research, please consider citing the paper:
             year={2023}
         }
 
+2) **SSSD-ECG-nle: New Label Embeddings with Structured State-Space Models for ECG generation** - We modified the conditioning mechanism in SSSD-ECG, encouraging the model to generate neutral examples and enhancing the consistency of real and synthetic data in terms of metrics on downstream task.
+
+        @inproceedings{skorik2024sssd,
+            title={SSSD-ECG-nle: New Label Embeddings with Structured State-Space Models for ECG generation},
+            author={Skorik, Sergey and Avetisyan, Aram},
+            booktitle={2024 Ivannikov Memorial Workshop (IVMEM)},
+            pages={55--61},
+            year={2024},
+            organization={IEEE}
+        }
+
 ### Installation
 
 To install the latest version from PyPI:
