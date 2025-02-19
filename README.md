@@ -9,6 +9,7 @@
 - [Models](#models)
 - [Preprocessing](#preprocessing)
 - [Predict](#predict)
+- [Generation](#generation)
 
 ### Introduction
 
@@ -25,6 +26,17 @@ If you find this tool useful in your research, please consider citing the paper:
             author={Avetisyan, Aram and Tigranyan, Shahane and Asatryan, Ariana and Mashkova, Olga and Skorik, Sergey and Ananev, Vladislav and Markin, Yury},
             journal={arXiv preprint arXiv:2305.18592},
             year={2023}
+        }
+
+2) **SSSD-ECG-nle: New Label Embeddings with Structured State-Space Models for ECG generation** - We modified the conditioning mechanism in SSSD-ECG, encouraging the model to generate neutral examples and enhancing the consistency of real and synthetic data in terms of metrics on downstream task.
+
+        @inproceedings{skorik2024sssd,
+            title={SSSD-ECG-nle: New Label Embeddings with Structured State-Space Models for ECG generation},
+            author={Skorik, Sergey and Avetisyan, Aram},
+            booktitle={2024 Ivannikov Memorial Workshop (IVMEM)},
+            pages={55--61},
+            year={2024},
+            organization={IEEE}
         }
 
 ### Installation
@@ -69,7 +81,7 @@ Via `datasets.py` one can create class *EcgDataset* to store ECG datasets. It st
 
 from ecglib.data import EcgDataset 
 
-targets = [[0.0] if 'AFIB' in eval(ptb_xl_info.iloc[i]['scp_codes']).keys() else [1.0] 
+targets = [[1.0] if 'AFIB' in eval(ptb_xl_info.iloc[i]['scp_codes']).keys() else [0.0] 
            for i in range(ptb_xl_info.shape[0])]
 ecg_data = EcgDataset(ecg_data=ptb_xl_info, target=targets)
 ```
@@ -164,3 +176,6 @@ result_df_npz = predict.predict_directory(directory="path/to/data_to_predict",
                                           file_type="npz",
                                           ecg_frequency=1000)
 ```
+
+### Generation
+`ecglib` contains the architecture of the diffusion model `SSSD_ECG_nle`, with which you can obtain synthetic signals. The training and generation pipeline is presented in `notebooks/sssd_ecg_nle.ipynb`. 

@@ -8,7 +8,8 @@ class MType(IntEnum):
     DENSENET = 1
     TABULAR = 2
     CNN = 3
-    OTHER = 4  # use to sign custom models
+    SSSD = 4
+    OTHER = 5  # use to sign custom models
 
     @staticmethod
     def from_string(label: str) -> IntEnum:
@@ -21,6 +22,8 @@ class MType(IntEnum):
             return MType.TABULAR
         elif "cnn1d" in label:
             return MType.CNN
+        elif "sssd" in label:
+            return MType.SSSD
         elif "other" in label:
             return MType.OTHER
         else:
